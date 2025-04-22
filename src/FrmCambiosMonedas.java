@@ -8,6 +8,7 @@ import java.awt.event.ActionListener;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.List;
+import java.util.stream.Collectors;
 
 import javax.swing.BoxLayout;
 import javax.swing.DefaultComboBoxModel;
@@ -22,8 +23,17 @@ import javax.swing.JTabbedPane;
 import javax.swing.JToolBar;
 import javax.swing.WindowConstants;
 
+import org.jfree.data.time.TimeSeries;
+import org.jfree.data.time.TimeSeriesCollection;
+import org.jfree.chart.ChartFactory;
+import org.jfree.chart.ChartPanel;
+import org.jfree.chart.JFreeChart;
+import org.jfree.chart.plot.XYPlot;
+import org.jfree.data.time.Day;
+
 import datechooser.beans.DateChooserCombo;
 import entidades.CambioMoneda;
+import servicios.Par;
 import servicios.ServicioCambioMoneda;
 
 public class FrmCambiosMonedas extends JFrame {
@@ -125,6 +135,37 @@ public class FrmCambiosMonedas extends JFrame {
 
             // Cambiar a la pestaña de Grafica
             tpCambiosMoneda.setSelectedIndex(0);
+
+            var cambiosxFecha = ServicioCambioMoneda.extraer(datos);
+
+            TimeSeries serieCambiosxFecha = new TimeSeries("Cambio en USD de " + moneda);
+            for (var cambioFecha : cambiosxFecha) {
+                var fecha = (LocalDate) ((Par) cambioFecha).getX();
+                var cambio = (double) ((Par) cambioFecha).getY();
+                serieCambiosxFecha.add(new Day(fecha.getDayOfMonth(), fecha.getMonthValue(), fecha.getYear()), cambio);
+            }
+
+            TimeSeriesCollection datosGrafica = new TimeSeriesCollection();
+            datosGrafica.addSeries(serieCambiosxFecha);
+
+            JFreeChart grafica = ChartFactory.createTimeSeriesChart(
+                    "Gráfica cambio de " + moneda + " vs Fecha",
+                    "Fecha",
+                    "Cambio en USD",
+                    datosGrafica,
+                    true,
+                    true,
+                    false);
+
+            XYPlot plot = grafica.getXYPlot();
+
+            ChartPanel pnlGraficar = new ChartPanel(grafica);
+            pnlGraficar.setPreferredSize(new Dimension(800, 400));
+
+            pnlGrafica.removeAll();
+            pnlGrafica.setLayout(new BorderLayout());
+            pnlGrafica.add(pnlGraficar, BorderLayout.CENTER);
+
         }
     }
 
@@ -138,13 +179,24 @@ public class FrmCambiosMonedas extends JFrame {
             // Cambiar a la pestaña de estadísticas
             tpCambiosMoneda.setSelectedIndex(1);
 
-            var cambios = ServicioCambioMoneda.filtrar(moneda, desde, hasta, datos);
-            for (CambioMoneda cambio : cambios) {
-                System.out.println(cambio.getMoneda() + " " + cambio.getFecha());
-            }
+            var estadisticas = ServicioCambioMoneda.getEstadisticas(moneda, desde, hasta, datos);
 
+            pnlEstadisticas.removeAll();
+            pnlEstadisticas.setLayout(new GridBagLayout());
+            GridBagConstraints gbc = new GridBagConstraints();
+            int fila = 0;
+            for (var estadistica : estadisticas.entrySet()) {
+                gbc.gridx = 0;
+                gbc.gridy = fila;
+                pnlEstadisticas.add(new JLabel(estadistica.getKey()), gbc);
+
+                gbc.gridx = 1;
+                pnlEstadisticas.add(new JLabel(String.format("%.2f", estadistica.getValue())), gbc);
+                fila++;
+
+                fila++;
+            }
         }
     }
-
 
 }
